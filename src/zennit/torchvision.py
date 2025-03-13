@@ -16,15 +16,78 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this library. If not, see <https://www.gnu.org/licenses/>.
 '''Specialized Canonizers for models from torchvision.'''
+import os
+import importlib
 import torch
 from torchvision.models.resnet import Bottleneck as ResNetBottleneck, BasicBlock as ResNetBasicBlock
 
 from .canonizers import SequentialMergeBatchNorm, AttributeCanonizer, CompositeCanonizer
 from .layer import Sum
 
+# load Merlin's i3res backbone
+module_path = os.getenv("RESNET_MODULE_PATH", "models.inflated_convnets_pytorch.src.i3res")
+ResNetBottleneck3d = importlib.import_module(module_path).__dict__["Bottleneck3d"]
+
 
 class VGGCanonizer(SequentialMergeBatchNorm):
     '''Canonizer for torchvision.models.vgg* type models. This is so far identical to a SequentialMergeBatchNorm'''
+
+
+class ResNetBottleneck3dCanonizer(AttributeCanonizer):
+    '''Canonizer specifically for Bottlenecks of Merlin's i3resnet bottleneck3d block.'''
+    def __init__(self):
+        super().__init__(self._attribute_map)
+
+    @classmethod
+    def _attribute_map(cls, name, module):
+        '''Create a forward function and a Sum module to overload as new attributes for module.
+
+        Parameters
+        ----------
+        name : string
+            Name by which the module is identified.
+        module : obj:`torch.nn.Module`
+            Instance of a module. If this is a Bottleneck layer, the appropriate attributes to overload are returned.
+
+        Returns
+        -------
+        None or dict
+            None if `module` is not an instance of Bottleneck, otherwise the appropriate attributes to overload onto
+            the module instance.
+        '''
+        if isinstance(module, ResNetBottleneck3d):
+            attributes = {
+                'forward': cls.forward.__get__(module),
+                'canonizer_sum': Sum(),
+            }
+            return attributes
+        return None
+
+    @staticmethod
+    def forward(self, x):
+        '''Modified Bottleneck forward for ResNet.'''
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out = torch.stack([identity, out], dim=-1)
+        out = self.canonizer_sum(out)
+
+        out = self.relu(out)
+
+        return out
 
 
 class ResNetBottleneckCanonizer(AttributeCanonizer):
@@ -144,6 +207,7 @@ class ResNetCanonizer(CompositeCanonizer):
     def __init__(self):
         super().__init__((
             SequentialMergeBatchNorm(),
+            ResNetBottleneck3dCanonizer(),
             ResNetBottleneckCanonizer(),
             ResNetBasicBlockCanonizer(),
         ))
