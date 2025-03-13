@@ -20,13 +20,15 @@ import os
 import importlib
 import torch
 from torchvision.models.resnet import Bottleneck as ResNetBottleneck, BasicBlock as ResNetBasicBlock
+import sys
 
 from .canonizers import SequentialMergeBatchNorm, AttributeCanonizer, CompositeCanonizer
 from .layer import Sum
 
-# load Merlin's i3res backbone
-module_path = os.getenv("RESNET_MODULE_PATH", "models.inflated_convnets_pytorch.src.i3res")
-ResNetBottleneck3d = importlib.import_module(module_path).__dict__["Bottleneck3d"]
+module_path = os.getenv("RESNET_MODULE_PATH")  # get path to project folder
+sys.path.append(module_path)
+resnet_module = "models.inflated_convnets_pytorch.src.i3res"  # load i3resnet module
+ResNetBottleneck3d = importlib.import_module(resnet_module).__dict__.get("Bottleneck3d")
 
 
 class VGGCanonizer(SequentialMergeBatchNorm):

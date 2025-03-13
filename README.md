@@ -1,4 +1,30 @@
+# LRP support for inflated 3d ResNet. Forked from Zennit (see below)
+
+First, install the this forked zennit package with
+```shell
+$ git clone https://github.com/lupus83/zennit-i3r.git
+$ pip install -e ./zennit-i3r
+```
+
+Before doing any package calls, you need to export the `RESNET_MODULE_PATH` environment variable, pointing to your project directory:
+```shell
+import os
+os.environ["RESNET_MODULE_PATH"] = "/absolute/path/to/project/folder"
+```
+
+We assume that the ResNet Bottleneck definition is available in the following file in this directory:
+`models.inflated_convnets_pytorch.src.i3res`
+
+If you project directory structure changed, modify line 30 in `zennit-i3r/src/zennit/torchvision.py`:
+```shell
+resnet_module = "models.inflated_convnets_pytorch.src.i3res"  # load i3resnet module
+```
+
+
+
+
 # Zennit
+
 ![Zennit-Logo](share/img/zennit.png)
 
 [![Documentation Status](https://readthedocs.org/projects/zennit/badge/?version=latest)](https://zennit.readthedocs.io/en/latest/?badge=latest)
